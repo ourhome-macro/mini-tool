@@ -10,7 +10,10 @@ const App = {
     loadMapAPI() {
         const script = document.createElement('script');
         script.type = 'text/javascript';
-        script.src = `https://webapi.amap.com/maps?v=2.0&key=${MapManager.apiKey}&callback=App.onMapLoaded`;
+        script.src = `https://webapi.amap.com/maps?v=2.0&key=${MapManager.apiKey}`;
+        script.onload = () => {
+            this.onMapLoaded();
+        };
         script.onerror = () => {
             Utils.showMessage('地图API加载失败，请检查API Key是否正确', 'error');
         };
@@ -20,6 +23,13 @@ const App = {
     onMapLoaded() {
         if (MapManager.init()) {
             console.log('地图初始化成功');
+            MapManager.onReady(() => {
+                console.log('地图插件加载完成，可以开始使用');
+                const input = document.getElementById('locationInput');
+                if (input) {
+                    input.placeholder = '输入地址，如：北京市朝阳区三里屯';
+                }
+            });
         }
     },
 
@@ -61,6 +71,11 @@ const App = {
             return;
         }
 
+        if (!MapManager.isReady) {
+            Utils.showMessage('地图正在初始化，请稍候...', 'error');
+            return;
+        }
+
         Utils.showLoading();
 
         try {
@@ -86,8 +101,9 @@ const App = {
 
         } catch (error) {
             Utils.hideLoading();
-            Utils.showMessage('地址解析失败，请检查地址是否正确', 'error');
-            console.error(error);
+            const errorMsg = error.message || '地址解析失败，请检查地址是否正确';
+            Utils.showMessage(errorMsg, 'error');
+            console.error('地址解析错误:', error);
         }
     },
 
@@ -234,7 +250,3 @@ const App = {
         }
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    App.init();
-});

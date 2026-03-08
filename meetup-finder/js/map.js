@@ -5,7 +5,10 @@ const MapManager = {
     circle: null,
     geocoder: null,
     placeSearch: null,
-    apiKey: 'YOUR_AMAP_KEY_HERE',
+    apiKey: '91846374b66b9125eaa328c2c9f67557',
+    webServiceKey: 'YOUR_KEY',
+    isReady: false,
+    readyCallbacks: [],
 
     init() {
         if (typeof AMap === 'undefined') {
@@ -20,43 +23,123 @@ const MapManager = {
             viewMode: '2D'
         });
 
-        this.geocoder = new AMap.Geocoder({
-            city: '全国'
-        });
+        AMap.plugin(['AMap.Geocoder', 'AMap.PlaceSearch', 'AMap.ToolBar', 'AMap.Scale'], () => {
+            this.geocoder = new AMap.Geocoder({
+                city: '全国'
+            });
 
-        this.placeSearch = new AMap.PlaceSearch({
-            pageSize: 20,
-            pageIndex: 1,
-            extensions: 'all'
-        });
+            this.placeSearch = new AMap.PlaceSearch({
+                pageSize: 20,
+                pageIndex: 1,
+                extensions: 'all'
+            });
 
-        AMap.plugin(['AMap.ToolBar', 'AMap.Scale'], () => {
             this.map.addControl(new AMap.ToolBar());
             this.map.addControl(new AMap.Scale());
+            
+            this.isReady = true;
+            console.log('地图插件加载完成');
+            
+            this.readyCallbacks.forEach(callback => callback());
+            this.readyCallbacks = [];
         });
 
         return true;
     },
+    
+    onReady(callback) {
+        if (this.isReady) {
+            callback();
+        } else {
+            this.readyCallbacks.push(callback);
+        }
+    },
 
     geocode(address) {
+        return new Promise((resolve, reject) => {
+            console.log('开始地理编码:', address);
+            
+            this.geocodeByWebService(address)
+                .then(resolve)
+                .catch(error => {
+                    console.warn('Web服务地理编码失败，尝试JS API:', error.message);
+                    this.geocodeByJSAPI(address)
+                        .then(resolve)
+                        .catch(reject);
+                });
+        });
+    },
+
+    geocodeByWebService(address) {
+        return new Promise((resolve, reject) => {
+            const url = `https://restapi.amap.com/v3/geocode/geo?key=${this.webServiceKey}&address=${encodeURIComponent(address)}`;
+            
+            const timeout = setTimeout(() => {
+                reject(new Error('Web服务地理编码超时'));
+            }, 10000);
+
+            fetch(url)
+                .then(response => {
+                    clearTimeout(timeout);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Web服务地理编码结果:', data);
+                    if (data.status === '1' && data.geocodes && data.geocodes.length > 0) {
+                        const geocode = data.geocodes[0];
+                        const [lng, lat] = geocode.location.split(',');
+                        resolve({
+                            lng: parseFloat(lng),
+                            lat: parseFloat(lat),
+                            formattedAddress: geocode.formatted_address
+                        });
+                    } else {
+                        reject(new Error(data.info || '未找到地址'));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeout);
+                    reject(error);
+                });
+        });
+    },
+
+    geocodeByJSAPI(address) {
         return new Promise((resolve, reject) => {
             if (!this.geocoder) {
                 reject(new Error('地理编码器未初始化'));
                 return;
             }
 
-            this.geocoder.getLocation(address, (status, result) => {
-                if (status === 'complete' && result.geocodes.length > 0) {
-                    const geocode = result.geocodes[0];
-                    resolve({
-                        lng: geocode.location.lng,
-                        lat: geocode.location.lat,
-                        formattedAddress: geocode.formattedAddress
-                    });
-                } else {
-                    reject(new Error('地址解析失败'));
-                }
-            });
+            const timeout = setTimeout(() => {
+                reject(new Error('地址解析超时，请检查API Key是否有地理编码权限'));
+            }, 15000);
+
+            try {
+                this.geocoder.getLocation(address, (status, result) => {
+                    clearTimeout(timeout);
+                    console.log('JS API地理编码结果:', status, result);
+                    
+                    if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
+                        const geocode = result.geocodes[0];
+                        resolve({
+                            lng: geocode.location.lng,
+                            lat: geocode.location.lat,
+                            formattedAddress: geocode.formattedAddress
+                        });
+                    } else if (status === 'no_data') {
+                        reject(new Error('未找到该地址，请尝试更详细的地址，如"北京市朝阳区三里屯"'));
+                    } else {
+                        const errorMsg = (result && (result.info || result.message)) || '未知错误';
+                        console.error('地理编码失败详情:', result);
+                        reject(new Error('地址解析失败: ' + errorMsg));
+                    }
+                });
+            } catch (error) {
+                clearTimeout(timeout);
+                console.error('地理编码异常:', error);
+                reject(new Error('地理编码调用失败: ' + error.message));
+            }
         });
     },
 
@@ -137,6 +220,69 @@ const MapManager = {
     },
 
     async searchPOI(center, radius, type) {
+        console.log('开始POI搜索:', { center, radius, type });
+        
+        return new Promise((resolve, reject) => {
+            this.searchPOIByWebService(center, radius, type)
+                .then(resolve)
+                .catch(error => {
+                    console.warn('Web服务POI搜索失败，尝试JS API:', error.message);
+                    this.searchPOIByJSAPI(center, radius, type)
+                        .then(resolve)
+                        .catch(reject);
+                });
+        });
+    },
+
+    searchPOIByWebService(center, radius, type) {
+        return new Promise((resolve, reject) => {
+            const url = `https://restapi.amap.com/v3/place/around?key=${this.webServiceKey}&location=${center.lng},${center.lat}&radius=${radius * 1000}&types=${type}&offset=20&page=1&extensions=all`;
+            
+            console.log('Web服务POI搜索URL:', url);
+            
+            const timeout = setTimeout(() => {
+                reject(new Error('POI搜索超时'));
+            }, 10000);
+
+            fetch(url)
+                .then(response => {
+                    clearTimeout(timeout);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Web服务POI搜索结果:', data);
+                    if (data.status === '1' && data.pois && data.pois.length > 0) {
+                        const pois = data.pois.map(poi => {
+                            const [lng, lat] = poi.location.split(',');
+                            return {
+                                id: poi.id,
+                                name: poi.name,
+                                address: poi.address,
+                                lng: parseFloat(lng),
+                                lat: parseFloat(lat),
+                                type: poi.type,
+                                typecode: poi.typecode,
+                                distance: poi.distance,
+                                rating: poi.biz_ext && poi.biz_ext.rating ? poi.biz_ext.rating : '暂无',
+                                cost: poi.biz_ext && poi.biz_ext.cost ? poi.biz_ext.cost : '暂无',
+                                weight: poi.weight || 0
+                            };
+                        });
+
+                        pois.sort((a, b) => b.weight - a.weight);
+                        resolve(pois);
+                    } else {
+                        resolve([]);
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeout);
+                    reject(error);
+                });
+        });
+    },
+
+    searchPOIByJSAPI(center, radius, type) {
         return new Promise((resolve, reject) => {
             if (!this.placeSearch) {
                 reject(new Error('POI搜索未初始化'));
@@ -150,6 +296,7 @@ const MapManager = {
                 centerLngLat,
                 radius * 1000,
                 (status, result) => {
+                    console.log('JS API POI搜索结果:', status, result);
                     if (status === 'complete' && result.poiList) {
                         const pois = result.poiList.pois.map(poi => ({
                             id: poi.id,
