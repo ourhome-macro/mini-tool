@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f1e7">
+  <meta name="description" content="墨阅：一个可以揣进口袋的 Markdown 阅读器。本地打开、拖拽或粘贴 Markdown，安静地读完。">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>墨阅 · 一个 Markdown 小玩具</title>
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('moyue.state.v1') || 'null');
+        var theme = saved && saved.prefs && saved.prefs.theme;
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      } catch (error) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4l2 2h6a2.5 2.5 0 0 1 2.5 2.5v8A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9.5 10h5M9.5 14h5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.2A8.5 8.5 0 0 1 8.8 4a8.5 8.5 0 1 0 11.2 11.2Z"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5a1.5 1.5 0 0 1-1.5-1.5v-5A1.5 1.5 0 0 1 5 9h14a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 19 17h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/><path d="M17.5 12.5h.01"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v18H6.5A2.5 2.5 0 0 1 4 18.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v18h4.5a2.5 2.5 0 0 0 2.5-2.5z"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7zM18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+    <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  </svg>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar" aria-label="文档书架">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span>墨</span></div>
+        <div class="brand-copy">
+          <span class="brand-name">墨阅</span>
+          <span class="brand-sub">MARKDOWN READER</span>
+        </div>
+        <span class="brand-badge">小玩具</span>
+      </div>
+
+      <div class="side-actions">
+        <button class="btn btn-primary" id="openFileBtn" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
+          <span>打开 Markdown</span>
+        </button>
+        <button class="btn btn-ghost" id="pasteBtn" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-paste"></use></svg>
+          <span>粘贴一段文字</span>
+        </button>
+      </div>
+
+      <div class="library-head">
+        <span>本地书架</span>
+        <span class="count" id="docCount">0</span>
+      </div>
+      <nav class="doc-list" id="docList" aria-label="已打开的文档"></nav>
+
+      <div class="privacy-note">
+        <span class="privacy-dot" aria-hidden="true"></span>
+        <span>所有内容只在本地浏览器里处理，<br>不会上传到任何地方。</span>
+      </div>
+      <div class="side-footer">
+        <span><kbd>Ctrl</kbd><kbd>O</kbd> 打开</span>
+        <span><kbd>Ctrl</kbd><kbd>K</kbd> 搜索</span>
+      </div>
+    </aside>
+
+    <button class="sidebar-backdrop" id="sidebarBackdrop" type="button" aria-label="收起侧栏" tabindex="-1"></button>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn" id="sidebarToggle" type="button" aria-label="切换文档书架" title="切换侧栏 (Ctrl+B)">
+            <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+          </button>
+          <div class="doc-heading">
+            <h1 id="docTitle">墨阅</h1>
+            <p id="docMeta">打开一份 Markdown，开始安静地读。</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="search-pill" id="searchBtn" type="button" title="在文档中搜索 (Ctrl+K)">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+            <span>搜索</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <div class="font-controls" aria-label="字号">
+            <button type="button" id="fontDown" title="缩小字号" aria-label="缩小字号">A−</button>
+            <button type="button" id="fontUp" title="放大字号" aria-label="放大字号">A+</button>
+          </div>
+          <button class="icon-btn" id="themeBtn" type="button" aria-label="切换深色主题" title="切换主题">
+            <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+            <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+          </button>
+          <button class="icon-btn" id="printBtn" type="button" aria-label="打印或导出 PDF" title="打印 / 导出 PDF">
+            <svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>
+          </button>
+        </div>
+      </header>
+      <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="readingProgress"></div></div>
+
+      <div class="scroll-area" id="scrollArea" tabindex="-1">
+        <div class="reader-shell" id="readerShell">
+          <div class="article-column">
+            <article class="markdown-body" id="article" aria-label="文档内容"></article>
+            <div class="doc-end" id="docEnd" hidden>
+              <span class="end-rule"></span>
+              <span class="end-text">读到这里了</span>
+              <span class="end-rule"></span>
+            </div>
+          </div>
+          <aside class="toc-panel" id="tocPanel" aria-label="文章目录"></aside>
+        </div>
+
+        <section class="empty-state" id="emptyState" hidden>
+          <div class="empty-art" aria-hidden="true">
+            <div class="empty-page page-back"></div>
+            <div class="empty-page page-front">
+              <span class="empty-line long"></span>
+              <span class="empty-line"></span>
+              <span class="empty-line short"></span>
+              <span class="empty-stamp">MD</span>
+            </div>
+            <span class="empty-spark spark-a">✦</span>
+            <span class="empty-spark spark-b">✧</span>
+          </div>
+          <p class="empty-kicker">你的书架还是空的</p>
+          <h2>把一份 Markdown 放进来</h2>
+          <p class="empty-text">拖拽文件到窗口，或者从本地打开。也可以直接粘贴一段文字，墨阅会把它排版成一篇好读的文章。</p>
+          <div class="empty-actions">
+            <button class="btn btn-primary" id="emptyOpenBtn" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
+              打开文档
+            </button>
+            <button class="btn btn-ghost" id="emptySampleBtn" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
+              装回示例
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <button class="back-top" id="backTop" type="button" aria-label="回到顶部" title="回到顶部">
+        <svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>
+      </button>
+    </main>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
+    <div class="drop-card">
+      <div class="drop-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"></use></svg></div>
+      <strong>松手，收下这份 Markdown</strong>
+      <span>支持 .md、.markdown、.txt 文件，可以一次放好几份。</span>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept=".md,.markdown,.mdown,.mkd,.txt,text/markdown,text/plain" multiple hidden>
+
+  <dialog class="dialog search-dialog" id="searchDialog" aria-labelledby="searchTitle">
+    <div class="search-bar">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+      <input id="searchInput" type="text" placeholder="在文章里找点什么…" autocomplete="off" spellcheck="false" aria-labelledby="searchTitle">
+      <button class="kbd-close" id="searchCloseBtn" type="button" aria-label="关闭搜索">Esc</button>
+    </div>
+    <h2 class="visually-hidden" id="searchTitle">搜索文档</h2>
+    <div class="search-results" id="searchResults"></div>
+    <div class="dialog-hint"><span><kbd>↑</kbd><kbd>↓</kbd> 选择</span><span><kbd>Enter</kbd> 跳转</span><span><kbd>Esc</kbd> 关闭</span></div>
+  </dialog>
+
+  <dialog class="dialog paste-dialog" id="pasteDialog" aria-labelledby="pasteTitle">
+    <form id="pasteForm">
+      <div class="dialog-head">
+        <div>
+          <p class="dialog-kicker">NEW DOCUMENT</p>
+          <h2 id="pasteTitle">粘贴一段 Markdown</h2>
+        </div>
+        <button class="icon-btn" id="pasteCloseBtn" type="button" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <label class="field">
+        <span>标题 <em>可选，留空会从正文里找</em></span>
+        <input id="pasteTitleInput" type="text" placeholder="比如：周五的读书笔记" maxlength="80">
+      </label>
+      <label class="field">
+        <span>正文</span>
+        <textarea id="pasteContent" rows="12" required placeholder="# 你好，墨阅&#10;&#10;把 Markdown 粘贴到这里，再按下「收进书架」。" spellcheck="false"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" id="pasteCancelBtn" type="button">取消</button>
+        <button class="btn btn-primary" type="submit" id="pasteSubmitBtn">
+          <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
+          收进书架
+        </button>
+      </div>
+      <p class="form-hint"><kbd>Ctrl</kbd><kbd>Enter</kbd> 快速保存</p>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span id="toastMessage"></span>
+    <button id="toastAction" type="button" hidden></button>
+  </div>
+
+  <script src="js/sample.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
