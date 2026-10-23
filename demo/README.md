@@ -8,7 +8,7 @@
 
 ## 快速开始
 
-直接双击 `index.html`，把 `.md` / `.markdown` / `.txt` 文件拖进窗口，或者点击「打开 Markdown」。
+直接双击 `index.html`，把一份或多份 `.md` / `.markdown` / `.txt` 文件拖进窗口，或者点击「打开 Markdown」多选。
 
 也可以起一个本地静态服务器：
 
@@ -21,8 +21,9 @@ python -m http.server 8000
 
 ## 它能做什么
 
-- **打开与收纳**：选择文件、拖拽多份文件，或直接粘贴 Markdown；文档会留在左侧书架里，刷新后仍然在。
+- **多文档书架**：一次选择或拖入多份文档，在同一个页面里切换；同名同内容的文件会自动去重，也可以直接粘贴 Markdown。
 - **安静地排版**：标题、段落、强调、链接、图片、引用、提示块、列表、任务清单、表格、代码块、分割线、Setext 标题、YAML frontmatter。
+- **认出文本**：UTF-8、GBK / GB18030、带 BOM 的 UTF-16 都能读；二进制文件或无法识别的编码会被挡在门外。
 - **舒适地读**：自动生成目录、阅读进度、回到顶部、字号调节、明暗主题、打印 / 导出 PDF。
 - **找得到**：`Ctrl + K` 搜索标题、段落和代码，回车直接跳转；章节标题旁的 `#` 可以复制小节链接。
 - **本地优先**：渲染器不执行原始 HTML，不加载外部脚本；文档内容只写入浏览器本地 `localStorage`。
@@ -39,6 +40,10 @@ python -m http.server 8000
 | 深色主题 | 手机 |
 | :---: | :---: |
 | ![深色主题](preview-dark.png) | ![移动端阅读](preview-mobile.png) |
+
+连续打开多份，在左侧一页页切换：
+
+![多文档书架](preview-multi.png)
 
 正文里的代码、表格和任务清单：
 
@@ -67,10 +72,12 @@ demo/
 │   └── app.js           # 书架、搜索、目录、主题等交互
 ├── preview.png          # 阅读界面
 ├── preview-dark.png     # 深色主题
+├── preview-multi.png    # 多文档书架
 ├── preview-mobile.png   # 移动端
 ├── preview-search.png   # 文章内搜索
 ├── preview-content.png  # 正文排版
-└── README.md
+├── README.md
+└── TESTING.md           # 故障注入与边界测试记录
 ```
 
 ## 关于 Markdown 的边界
@@ -92,6 +99,12 @@ demo/
 3. 所有链接协议都会经过白名单检查；生成的 HTML 不包含可执行内容。
 
 UI 层没有框架，使用原生 DOM、原生 `<dialog>` 和 `localStorage`；目录高亮用简单的几何计算完成。样式通过 CSS 变量同时支撑明暗主题。
+
+---
+
+## 测试
+
+多文件打开、拖拽切换、编码识别、异常状态恢复和 Markdown 边界场景的测试记录见 [TESTING.md](TESTING.md)。
 
 ---
 

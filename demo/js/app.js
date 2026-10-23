@@ -309,14 +309,14 @@
     els.docList.innerHTML = state.docs.map(function (doc) {
       var active = doc.id === state.activeId;
       var stats = doc.stats || MD.countText(doc.content);
-      var kind = doc.builtin ? '内置示例' : (doc.name.replace(/^.*[\\/]/, '').split('.').pop() || 'md').toUpperCase() + ' 文档';
+      var subtitle = doc.builtin ? '内置示例' : doc.name.replace(/^.*[\\/]/, '');
       return '<div class="doc-item' + (active ? ' is-active' : '') + '">' +
         '<button class="doc-open" type="button" data-doc-id="' + escapeHtml(doc.id) + '"' +
         (active ? ' aria-current="true"' : '') + '>' +
         '<span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-file"></use></svg></span>' +
         '<span class="doc-text">' +
-        '<span class="doc-title" title="' + escapeHtml(doc.title) + '">' + escapeHtml(doc.title) + '</span>' +
-        '<span class="doc-sub">' + escapeHtml(kind) + ' · ' + formatCompact(stats.chars) + ' 字</span>' +
+        '<span class="doc-title" title="' + escapeHtml(doc.title + ' · ' + doc.name) + '">' + escapeHtml(doc.title) + '</span>' +
+        '<span class="doc-sub" title="' + escapeHtml(subtitle) + '">' + escapeHtml(subtitle) + ' · ' + formatCompact(stats.chars) + ' 字</span>' +
         '</span></button>' +
         '<button class="doc-remove" type="button" data-remove-id="' + escapeHtml(doc.id) + '" ' +
         'aria-label="从书架移除《' + escapeHtml(doc.title) + '》" title="从书架移除">' +
@@ -572,6 +572,38 @@
     if (message) showToast(message);
   }
 
+  function decodeTextBuffer(buffer) {
+    var bytes = new Uint8Array(buffer);
+
+    // UTF-16 文本带有 BOM，先按 UTF-16 解码，避免把 0 字节误判成二进制。
+    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+      return new TextDecoder('utf-16le').decode(buffer);
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+      return new TextDecoder('utf-16be').decode(buffer);
+    }
+
+    // 普通文本里几乎不会出现 NUL，这通常意味着文件并不是 Markdown。
+    if (bytes.indexOf(0) !== -1) {
+      var binaryError = new Error('BINARY_FILE');
+      binaryError.userMessage = '看起来不是文本文件';
+      throw binaryError;
+    }
+
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    } catch (utf8Error) {
+      try {
+        // 旧的中文 Markdown 有些是 GBK / GB18030 编码。
+        return new TextDecoder('gb18030', { fatal: true }).decode(buffer);
+      } catch (legacyError) {
+        var decodeError = new Error('BINARY_FILE');
+        decodeError.userMessage = '无法识别文件编码，可能不是文本文件';
+        throw decodeError;
+      }
+    }
+  }
+
   async function handleFiles(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
     if (!files.length) return;
@@ -593,7 +625,7 @@
       }
 
       try {
-        var content = await file.text();
+        var content = decodeTextBuffer(await file.arrayBuffer());
         if (!content.trim()) {
           showToast('《' + file.name + '》是空的。');
           continue;
@@ -615,7 +647,11 @@
         });
         if (doc) accepted.push(doc);
       } catch (error) {
-        showToast('《' + file.name + '》读取失败，请再试一次。');
+        if (error && error.userMessage) {
+          showToast('《' + file.name + '》' + error.userMessage + '，已跳过。');
+        } else {
+          showToast('《' + file.name + '》读取失败，请再试一次。');
+        }
       }
     }
 
@@ -756,7 +792,7 @@
     var items = [];
     var heading = '正文';
 
-    for (var i = 0; i < nodes.length && items.length < 900; i += 1) {
+    for (var i = 0; i < nodes.length; i += 1) {
       var node = nodes[i];
       if (node.closest('.code-head')) continue;
       var isHeading = /^H[1-6]$/.test(node.tagName);

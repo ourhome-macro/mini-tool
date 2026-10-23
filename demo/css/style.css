@@ -294,6 +294,23 @@ kbd {
   margin-top: 28px;
 }
 
+.side-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 1px 4px 0;
+  color: var(--ink-faint);
+  font-size: 9.4px;
+  letter-spacing: 0.02em;
+}
+
+.side-hint::before {
+  width: 12px;
+  height: 1px;
+  background: var(--line-strong);
+  content: "";
+}
+
 .btn {
   display: inline-flex;
   min-height: 42px;
@@ -1117,6 +1134,18 @@ kbd {
 .markdown-body li > ul,
 .markdown-body li > ol {
   margin: 0.35em 0;
+}
+
+.markdown-body ul.deep-nest,
+.markdown-body ol.deep-nest,
+.markdown-body ul.deep-nest.has-tasks,
+.markdown-body ol.deep-nest.has-tasks {
+  padding-left: 0;
+}
+
+.markdown-body ul.deep-nest > li,
+.markdown-body ol.deep-nest > li {
+  padding-left: 0;
 }
 
 .markdown-body ul.tight > li > p,

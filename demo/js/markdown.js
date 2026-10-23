@@ -321,7 +321,8 @@
     return false;
   }
 
-  function parseList(lines, start, ctx) {
+  function parseList(lines, start, ctx, level) {
+    level = level || 1;
     var first = matchListItem(lines[start]);
     var baseIndent = first.indent;
     var ordered = first.type === 'ol';
@@ -405,7 +406,7 @@
         }
       }
 
-      var body = parseBlocks(working, ctx);
+      var body = parseBlocks(working, ctx, level);
       if (task === null) {
         return '<li>' + body + '</li>';
       }
@@ -419,6 +420,8 @@
     var classes = [];
     if (!loose) classes.push('tight');
     if (hasTask) classes.push('has-tasks');
+    // 病态深度的列表不再继续增加缩进，避免把卡片撑出屏幕。
+    if (level > 8) classes.push('deep-nest');
     var classAttr = classes.length ? ' class="' + classes.join(' ') + '"' : '';
 
     if (ordered) {
@@ -430,7 +433,8 @@
     return { html: '<ul' + classAttr + '>' + itemHtml + '</ul>', next: i };
   }
 
-  function parseBlocks(lines, ctx) {
+  function parseBlocks(lines, ctx, listLevel) {
+    listLevel = listLevel || 0;
     var out = [];
     var i = 0;
 
@@ -526,7 +530,7 @@
           }
         }
 
-        var quoteBody = parseBlocks(quoteLines, ctx);
+        var quoteBody = parseBlocks(quoteLines, ctx, listLevel);
         if (calloutType) {
           var infoBox = calloutTypes[calloutType];
           var titleHtml = calloutTitle ? renderInline(calloutTitle) : infoBox.label;
@@ -588,7 +592,7 @@
       // 列表。
       var listMarker = matchListItem(line);
       if (listMarker && listMarker.indent <= 3) {
-        var list = parseList(lines, i, ctx);
+        var list = parseList(lines, i, ctx, listLevel + 1);
         out.push(list.html);
         i = list.next;
         continue;
